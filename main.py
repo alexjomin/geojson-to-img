@@ -2,24 +2,13 @@ import json
 import math
 import requests
 from urllib2 import urlopen
+from point import Point
 
-import mercantile
 from wand.image import Image
 from wand.drawing import Drawing
 from wand.display import display
 from wand.color import Color
 import numpy as np
-
-class Point:
-	def __init__(self, lon, lat):
-		self.lon = lon
-		self.lat = lat
-
-	def get_tile(self, zoom_level):
-		return mercantile.tile(self.lon, self.lat, zoom_level)
-
-	def get_xy(self, zoom_level):
-		return mercantile.xy(self.lon, self.lat)
 
 class Bounds:
 	def __init__(self, min_lon, max_lon, min_lat, max_lat):
@@ -97,38 +86,39 @@ class Render:
 
 		self.bounds = Bounds(min_lon, max_lon, min_lat, max_lat)
 
-		print self.bounds
-
 	def get_size_from_bounds_and_zoom_level(self):
 
 		# top left point
 		top_left = Point(self.bounds.nw.lon, self.bounds.nw.lat)
-		top_left_tile = mercantile.tile(top_left.lon, top_left.lat, self.rendering_zoom)
+		top_left.project(self.rendering_zoom)
 
 		# top right point
 		top_right = Point(self.bounds.se.lon, self.bounds.nw.lat)
-		top_right_tile = mercantile.tile(top_right.lon, top_right.lat, self.rendering_zoom)
+		top_right.project(self.rendering_zoom)
 
 		# calculate width in px
-		width = math.fabs(top_left_tile.x-top_right_tile.x)
+		width = math.fabs(top_left.x-top_right.x)
 
 		# bottom left point
 		bottom_left = Point(self.bounds.nw.lon, self.bounds.se.lat)
-		bottom_left_tile = mercantile.tile(bottom_left.lon, bottom_left.lat, self.rendering_zoom)
+		bottom_left.project(self.rendering_zoom)
 
 		# calculte height in px
-		height = math.fabs(top_left_tile.y-bottom_left_tile.y)
+		height = math.fabs(top_left.y-bottom_left.y)
 
-		self.width_in_pixel = width * 256
-		self.height_in_pixel = height * 256
+		self.width_in_pixel = width
+		self.height_in_pixel = height
 
 	def get_tiles_for_bounds(self):
-		nw_tile = self.bounds.nw.get_tile(self.rendering_zoom)
-		se_tile = self.bounds.se.get_tile(self.rendering_zoom)
+		self.bounds.nw.project(self.rendering_zoom)
+		self.bounds.se.project(self.rendering_zoom)
 
-		x = [nw_tile.x, se_tile.x]
+		nw_tile_x, nw_tile_y = self.bounds.nw.get_tile()
+		se_tile_x, se_tile_y = self.bounds.se.get_tile()
+
+		x = [int(nw_tile_x), int(se_tile_x)]
 		x.sort()
-		y = [nw_tile.y, se_tile.y]
+		y = [int(nw_tile_y), int(se_tile_y)]
 		y.sort()
 
 		# Create the range of the tiles
@@ -188,22 +178,8 @@ class Render:
 		return "http://tile.openstreetmap.org/%s/%s/%s.png" % (self.rendering_zoom, tile[0], tile[1])
 
 
-	def get_xy(self, point) :
-
-		lon = point.lon
-		lat = point.lat
-
-		lon_rad = math.radians(lon)
-		lat_rad = math.radians(lat)
-		n = math.pow(2.0, self.rendering_zoom)
-
-		tile_x = ((lon + 180) / 360) * n
-		tile_y = (1 - (math.log(math.tan(lat_rad) + 1.0/math.cos(lat_rad)) / math.pi)) * n / 2.0
-
-		x = round((tile_x - self.minxtile) * 256)
-		y = round((tile_y - self.minytile) * 256)
-
-		return x, y
+	# x = round((tile_x - self.minxtile) * 256)
+	# y = round((tile_y - self.minytile) * 256)
 
 	def generate_track(self) :
 
@@ -217,7 +193,11 @@ class Render:
 		# Loop over the coordinates to create a list of tuples
 		for coords in self.geojson['coordinates'] :
 			pt = Point(coords[0], coords[1])
-			x, y = self.get_xy(pt)
+			pt.project(self.rendering_zoom)
+			x, y = pt.get_xy()
+			x = round(x - (self.minxtile * 256))
+			y = round(y - (self.minytile * 256))
+			print x, y
 			points.append((x, y))
 
 		# draw the polyline
