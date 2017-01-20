@@ -42,7 +42,7 @@ class Render:
 		self.height_in_pixel = 0
 
 		self.bounds = ''
-		self.render_bounds = ''
+		self.rendering_bounds = ''
 
 		self.tile_cache_path = './cache'
 		self.cache_path = ''
@@ -72,7 +72,7 @@ class Render:
 			tile_dir = os.path.dirname(tile_path)
 
 			if not os.path.isdir(tile_dir):
-				os.makedirs(os.path.dirname(tile_dir))
+				os.makedirs(tile_dir)
 
 			url = self.get_tile_url(tile)
 			response = urlopen(url)
@@ -87,6 +87,7 @@ class Render:
 	def prepare(self):
 		self.get_bounds()
 		self.define_zoom_level()
+		self.get_rendering_bounds()
 		self.init_cache()
 		tiles = self.get_tiles_for_bounds()
 		self.generate_background(tiles)
@@ -122,6 +123,28 @@ class Render:
 
 		self.bounds = Bounds(min_lon, max_lon, min_lat, max_lat)
 
+	def get_rendering_bounds(self):
+
+		center_lat = (self.bounds.se.lat + self.bounds.nw.lat) / 2.0
+		center_lon = (self.bounds.se.lon + self.bounds.nw.lon) / 2.0
+		center = Point(center_lon, center_lat)
+		center.project(self.rendering_zoom)
+		self.center = center
+
+		top_left_x = center.x - (self.render_width / 2.0)
+		top_left_y = center.y - (self.render_height / 2.0)
+		top_left = Point.from_xy(top_left_x, top_left_y)
+		top_left.unproject(self.rendering_zoom)
+
+		bottom_x = center.x + (self.render_width / 2.0)
+		bottom_y = center.y + (self.render_height / 2.0)
+		bottom_right = Point.from_xy(bottom_x, bottom_y)
+		bottom_right.unproject(self.rendering_zoom)
+
+		self.rendering_bounds = Bounds(top_left.lon, bottom_right.lon, bottom_right.lat, top_left.lat)
+
+		print self.rendering_bounds
+
 	def get_size_from_bounds_and_zoom_level(self):
 
 		# top left point
@@ -146,11 +169,14 @@ class Render:
 		self.height_in_pixel = height
 
 	def get_tiles_for_bounds(self):
-		self.bounds.nw.project(self.rendering_zoom)
-		self.bounds.se.project(self.rendering_zoom)
+		"""
+			Returns a matrix of tile corresponding to the bounds
+		"""
+		self.rendering_bounds.nw.project(self.rendering_zoom)
+		self.rendering_bounds.se.project(self.rendering_zoom)
 
-		nw_tile_x, nw_tile_y = self.bounds.nw.get_tile()
-		se_tile_x, se_tile_y = self.bounds.se.get_tile()
+		nw_tile_x, nw_tile_y = self.rendering_bounds.nw.get_tile()
+		se_tile_x, se_tile_y = self.rendering_bounds.se.get_tile()
 
 		x = [int(nw_tile_x), int(se_tile_x)]
 		x.sort()
@@ -186,8 +212,9 @@ class Render:
 
 	def generate_background(self, tiles) :
 		"""
-
+			Displays the tiles on the background
 		"""
+
 		self.img = Image(width=self.number_of_cols*256, height=self.number_of_rows*256)
 
 		current_row = 0
@@ -238,8 +265,19 @@ class Render:
 		# apply to the image
 		draw(self.img)
 
+		# self.rendering_bounds.nw.project(self.rendering_zoom)
+		x = int(self.rendering_bounds.nw.tile_x - self.minxtile)
+		y = int(self.rendering_bounds.nw.tile_y - self.minytile)
+
+		self.crop(x, y)
 		self.img.format = 'jpeg'
 		self.img.save(filename='image.jpg')
+
+	def crop(self, x, y):
+		x = self.rendering_bounds.nw.x - (self.minxtile * 256)
+		y = self.rendering_bounds.nw.y - (self.minytile * 256)
+		self.img.crop(int(x), int(y), width=self.render_width, height=self.render_height)
+
 
 r = Render()
 r.prepare()

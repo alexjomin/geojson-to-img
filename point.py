@@ -5,19 +5,24 @@ class Point:
 		https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
 	"""
 
-	def __init__(self, lon, lat):
-		self.lon = lon
-		self.lat = lat
+	def __init__(self, lon = None, lat = None):
+		self.lat = 0
+		self.lon = 0
+		if lon is not None and lat is not None:
+			self.lon = lon
+			self.lat = lat
 		self.x = 0
 		self.y = 0
 		self.tile_x = 0
 		self.tile_y = 0
 
-	@staticmethod
+	@classmethod
 	def from_xy(cls, x, y):
 		p = cls()
 		p.x = x
 		p.y = y
+		p.tile_x = x / 256.0
+		p.tile_y = y / 256.0
 		return p
 
 	def project(self, zoom_level):
@@ -28,8 +33,8 @@ class Point:
 		lat_rad = math.radians(self.lat)
 		self.tile_y = (1.0 - (math.log(math.tan(lat_rad) + (1 / math.cos(lat_rad))) / math.pi)) / 2 * n
 
-		self.x = self.tile_x * 256
-		self.y = self.tile_y * 256
+		self.x = self.tile_x * 256.0
+		self.y = self.tile_y * 256.0
 
 	def unproject(self, zoom_level):
 		n = math.pow(2, zoom_level)
@@ -49,5 +54,8 @@ class Point:
 p = Point(50.1345, 40.00123)
 p.project(12)
 print p.x , p.y
-p.unproject(12)
-print p.lon, p.lat
+
+u = Point.from_xy(p.x, p.y)
+print "tile %s %s" % (u.tile_x, u.tile_y)
+u.unproject(12)
+print u.lon, u.lat
