@@ -8,6 +8,6 @@ setup(name='geojson_to_img',
       license='MIT',
       packages=['geojson_to_img'],
 	  install_requires=[
-          'wand','numpy'
+          'wand','numpy','requests'
       ],
       zip_safe=False)
