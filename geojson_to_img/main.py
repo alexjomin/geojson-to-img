@@ -14,7 +14,7 @@ from wand.color import Color
 import numpy as np
 
 class Render:
-	def __init__(self, geojson):
+	def __init__(self, geojson, width=1024, height=1024):
 		self.minxtile = 0
 		self.minytile = 0
 
@@ -27,8 +27,8 @@ class Render:
 		self.center = 0
 		self.stroke_width = 3
 
-		self.render_width = 1024
-		self.render_height = 1024
+		self.render_width = int(width)
+		self.render_height = int(height)
 
 		self.width_in_pixel = 0
 		self.height_in_pixel = 0
