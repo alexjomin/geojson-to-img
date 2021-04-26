@@ -69,11 +69,7 @@ class Render:
             os.makedirs(self.cache_path[provider])
 
     def get_cache_path(self, provider):
-        return "%s/%s/%s" % (
-            self.tile_cache_path,
-            provider,
-            self.rendering_zoom,
-        )
+        return "%s/%s/%s" % (self.tile_cache_path, provider, self.rendering_zoom,)
 
     def get_tile(self, tile, provider):
         tile_path = "%s/%s/%s.png" % (self.cache_path[provider], tile[0], tile[1])
@@ -134,11 +130,7 @@ class Render:
             self.get_size_from_bounds_and_zoom_level()
             log.debug(
                 "define_zoom_level w: %s, h: %s, z: %s"
-                % (
-                    self.width_in_pixel,
-                    self.height_in_pixel,
-                    self.rendering_zoom,
-                )
+                % (self.width_in_pixel, self.height_in_pixel, self.rendering_zoom,)
             )
 
     def get_bounds(self):
@@ -225,9 +217,7 @@ class Render:
         i = 0
 
         # Create a Matrix of tiles
-        matrix = [
-            [0 for x in range(self.number_of_cols)] for y in range(self.number_of_rows)
-        ]
+        matrix = [[0] * self.number_of_cols] * self.number_of_rows
 
         # Loop over the rows (y tiles)
         for y_tile in tile_y_range:
@@ -328,10 +318,6 @@ class Render:
         draw.text_under_color = Color("#f6f5f5")
         x = self.rendering_bounds.se.x - (self.minxtile * 256)
         y = self.rendering_bounds.se.y - (self.minytile * 256) - 5
-        # for i in range(0, self.render_height, 40):
-        #     log.debug(i)
-        #     draw.text(i, i, str(i))
-        # # draw.circle((int(self.render_width), int(self.render_height), 10))
         draw.text(int(x), int(y), "Fond © OpenStreetMap" + " ")
         draw(self.img)
 
