@@ -115,15 +115,13 @@ class Render:
 
     def get_bounds(self):
 
-        max = np.max(self.geojson["coordinates"], axis=0)
-        max_lon = max[0]
-        max_lat = max[1]
-        max_ele = max[2]
+        my_max = np.max(self.geojson["coordinates"], axis=0)
+        max_lon = my_max[0]
+        max_lat = my_max[1]
 
-        min = np.min(self.geojson["coordinates"], axis=0)
-        min_lon = min[0]
-        min_lat = min[1]
-        min_ele = min[2]
+        my_min = np.min(self.geojson["coordinates"], axis=0)
+        min_lon = my_min[0]
+        min_lat = my_min[1]
 
         self.bounds = Bounds(min_lon, max_lon, min_lat, max_lat)
 
