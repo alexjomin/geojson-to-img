@@ -1,19 +1,18 @@
 import json
+import logging
 import math
-import requests
 import os
 
-from .point import Point
-from .bounds import Bounds
-
-from wand.image import Image
-from wand.drawing import Drawing
-from wand.display import display
-from wand.color import Color
-import numpy as np
 import geojson
+import numpy as np
+import requests
+from wand.color import Color
+from wand.display import display
+from wand.drawing import Drawing
+from wand.image import Image
 
-import logging
+from .bounds import Bounds
+from .point import Point
 
 log = logging.getLogger(__name__)
 
@@ -111,7 +110,11 @@ class Render:
         else:
             log.debug("no overlay")
         self.generate_attribution()
-        return self.generate_track()
+        self.generate_track()
+        self.crop()
+        self.img.format = "png"
+        # self.img.save(filename='image.jpg')
+        return self.img.make_blob("png")
 
     def define_zoom_level(self):
         """
@@ -289,7 +292,6 @@ class Render:
                         draw = Drawing()
                         draw.composite(
                             operator="dissolve",
-                            # operator="overlay",
                             left=current_col * 256,
                             top=current_row * 256,
                             width=tile_img.width,
@@ -358,16 +360,7 @@ class Render:
         # apply to the image
         draw(self.img)
 
-        # self.rendering_bounds.nw.project(self.rendering_zoom)
-        x = int(self.rendering_bounds.nw.tile_x - self.minxtile)
-        y = int(self.rendering_bounds.nw.tile_y - self.minytile)
-
-        self.crop(x, y)
-        self.img.format = "png"
-        # self.img.save(filename='image.jpg')
-        return self.img.make_blob("png")
-
-    def crop(self, x, y):
+    def crop(self):
         x = self.rendering_bounds.nw.x - (self.minxtile * 256)
         y = self.rendering_bounds.nw.y - (self.minytile * 256)
         self.img.crop(
