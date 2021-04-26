@@ -1,4 +1,4 @@
 *.pyc
 cache/*
 ./image.jpg
-.egg-info
+*.egg-info
