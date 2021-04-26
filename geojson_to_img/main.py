@@ -2,10 +2,9 @@ import json
 import math
 import requests
 import os
-from urllib2 import urlopen
 
-from point import Point
-from bounds import Bounds
+from .point import Point
+from .bounds import Bounds
 
 from wand.image import Image
 from wand.drawing import Drawing
@@ -23,7 +22,7 @@ class Render:
         self.number_of_cols = 0
 
         self.rendering_zoom = 13
-        self.tile_provider = "OCM"
+        self.tile_provider = "OSM"
         self.square_rendering = False
         self.center = 0
         self.stroke_width = 3
@@ -74,10 +73,9 @@ class Render:
                 os.makedirs(tile_dir)
 
             url = self.get_tile_url(tile)
-            response = urlopen(url)
-            url = self.get_tile_url(tile)
-            f = open(tile_path, "w+")
-            f.write(response.read())
+            response = requests.get(url)
+            f = open(tile_path, "wb+")
+            f.write(response.content)
 
         f = open(tile_path, "r")
         return f
@@ -109,11 +107,11 @@ class Render:
         ) and self.rendering_zoom > 1:
             self.rendering_zoom = self.rendering_zoom - 1
             self.get_size_from_bounds_and_zoom_level()
-            print "define_zoom_level w: %s, h: %s, z: %s" % (
+            print("define_zoom_level w: %s, h: %s, z: %s" % (
                 self.width_in_pixel,
                 self.height_in_pixel,
                 self.rendering_zoom,
-            )
+            ))
 
     def get_bounds(self):
 
@@ -151,7 +149,7 @@ class Render:
             top_left.lon, bottom_right.lon, bottom_right.lat, top_left.lat
         )
 
-        print self.rendering_bounds
+        print(self.rendering_bounds)
 
     def get_size_from_bounds_and_zoom_level(self):
 
@@ -192,8 +190,8 @@ class Render:
         y.sort()
 
         # Create the range of the tiles
-        tile_x_range = range(x[0], x[1] + 1)
-        tile_y_range = range(y[0], y[1] + 1)
+        tile_x_range = list(range(x[0], x[1] + 1))
+        tile_y_range = list(range(y[0], y[1] + 1))
 
         self.number_of_cols = len(tile_x_range)
         self.number_of_rows = len(tile_y_range)
@@ -258,7 +256,7 @@ class Render:
         """
         Returns the url for a specified tile
         """
-        return "http://tile.openstreetmap.org/%s/%s/%s.png" % (
+        return "https://tile.openstreetmap.org/%s/%s/%s.png" % (
             self.rendering_zoom,
             tile[0],
             tile[1],
