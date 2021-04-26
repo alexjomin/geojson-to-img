@@ -12,6 +12,8 @@ from wand.display import display
 from wand.color import Color
 import numpy as np
 
+import logging
+log = logging.getLogger(__name__)
 
 class Render:
     def __init__(self, geojson, width=1024, height=1024):
@@ -77,7 +79,7 @@ class Render:
             f = open(tile_path, "wb+")
             f.write(response.content)
 
-        f = open(tile_path, "r")
+        f = open(tile_path, "rb")
         return f
 
     def prepare(self):
@@ -107,7 +109,7 @@ class Render:
         ) and self.rendering_zoom > 1:
             self.rendering_zoom = self.rendering_zoom - 1
             self.get_size_from_bounds_and_zoom_level()
-            print("define_zoom_level w: %s, h: %s, z: %s" % (
+            log.debug("define_zoom_level w: %s, h: %s, z: %s" % (
                 self.width_in_pixel,
                 self.height_in_pixel,
                 self.rendering_zoom,
@@ -147,7 +149,7 @@ class Render:
             top_left.lon, bottom_right.lon, bottom_right.lat, top_left.lat
         )
 
-        print(self.rendering_bounds)
+        log.debug(self.rendering_bounds)
 
     def get_size_from_bounds_and_zoom_level(self):
 
@@ -235,7 +237,7 @@ class Render:
                     with Image(file=response) as tile_img:
                         draw = Drawing()
                         draw.composite(
-                            operator="add",
+                            operator="modulus_add",
                             left=current_col * 256,
                             top=current_row * 256,
                             width=tile_img.width,
