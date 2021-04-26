@@ -14,10 +14,20 @@ import numpy as np
 import geojson
 
 import logging
+
 log = logging.getLogger(__name__)
 
+
 class Render:
-    def __init__(self, geojson, width=1024, height=1024, overlay_id = "", overlay_url="", zoom_multiplier = 1):
+    def __init__(
+        self,
+        geojson,
+        width=1024,
+        height=1024,
+        overlay_id="",
+        overlay_url="",
+        zoom_multiplier=1,
+    ):
         self.minxtile = 0
         self.minytile = 0
 
@@ -49,8 +59,8 @@ class Render:
         self.overlay_url = overlay_url
 
         self.geojson = json.loads(geojson)
-        if self.geojson['type'] != "MultiPolygon":
-            geojsontype = self.geojson['type']
+        if self.geojson["type"] != "MultiPolygon":
+            geojsontype = self.geojson["type"]
             raise IOError(f"Expected geojson MultiPolygon geometry, got {geojsontype}")
 
     def init_cache(self, provider):
@@ -114,21 +124,29 @@ class Render:
         self.get_size_from_bounds_and_zoom_level()
 
         while (
-            self.width_in_pixel * self.zoom_multiplier > self.render_width  
+            self.width_in_pixel * self.zoom_multiplier > self.render_width
             or self.height_in_pixel * self.zoom_multiplier > self.render_height
         ) and self.rendering_zoom > 1:
             self.rendering_zoom = self.rendering_zoom - 1
             self.get_size_from_bounds_and_zoom_level()
-            log.debug("define_zoom_level w: %s, h: %s, z: %s" % (
-                self.width_in_pixel,
-                self.height_in_pixel,
-                self.rendering_zoom,
-            ))
+            log.debug(
+                "define_zoom_level w: %s, h: %s, z: %s"
+                % (
+                    self.width_in_pixel,
+                    self.height_in_pixel,
+                    self.rendering_zoom,
+                )
+            )
 
     def get_bounds(self):
 
         coords = np.array(list(geojson.utils.coords(self.geojson)))
-        self.bounds = Bounds(coords[:,0].min(), coords[:,0].max(), coords[:,1].min(), coords[:,1].max())
+        self.bounds = Bounds(
+            coords[:, 0].min(),
+            coords[:, 0].max(),
+            coords[:, 1].min(),
+            coords[:, 1].max(),
+        )
 
     def get_rendering_bounds(self):
 
@@ -254,7 +272,7 @@ class Render:
                 current_col += 1
 
             current_row += 1
-    
+
     def generate_overlay(self, tiles):
         """
         Displays the tiles on the overlay
@@ -286,7 +304,9 @@ class Render:
 
             current_row += 1
 
-    def get_tile_url(self, tile, query_url = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"):
+    def get_tile_url(
+        self, tile, query_url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+    ):
         """
         Returns the url for a specified tile
         """
@@ -300,9 +320,9 @@ class Render:
 
     def generate_attribution(self):
         draw = Drawing()
-        draw.font = '~/NotoSans-Regular.ttf'
+        draw.font = "~/NotoSans-Regular.ttf"
         draw.font_size = 11
-        draw.text_alignment = 'right'
+        draw.text_alignment = "right"
         draw.text_under_color = Color("#f6f5f5")
         x = self.rendering_bounds.se.x - (self.minxtile * 256)
         y = self.rendering_bounds.se.y - (self.minytile * 256) - 5
@@ -310,16 +330,15 @@ class Render:
         #     log.debug(i)
         #     draw.text(i, i, str(i))
         # # draw.circle((int(self.render_width), int(self.render_height), 10))
-        draw.text(int(x), int(y), 'Fond © OpenStreetMap' + ' ')
+        draw.text(int(x), int(y), "Fond © OpenStreetMap" + " ")
         draw(self.img)
 
     def generate_track(self):
 
         draw = Drawing()
-        draw.stroke_width = 2
-        draw.stroke_color = Color("red")
+        draw.stroke_width = 3
+        draw.stroke_color = Color("DarkViolet")
         draw.fill_color = Color("transparent")
-
 
         for ring in self.geojson["coordinates"][0]:
             points = []
