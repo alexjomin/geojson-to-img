@@ -11,6 +11,7 @@ from wand.drawing import Drawing
 from wand.display import display
 from wand.color import Color
 import numpy as np
+import geojson
 
 import logging
 log = logging.getLogger(__name__)
@@ -48,6 +49,9 @@ class Render:
         self.overlay_url = overlay_url
 
         self.geojson = json.loads(geojson)
+        if self.geojson['type'] != "MultiPolygon":
+            geojsontype = self.geojson['type']
+            raise IOError(f"Expected geojson MultiPolygon geometry, got {geojsontype}")
 
     def init_cache(self, provider):
         self.cache_path[provider] = self.get_cache_path(provider)
@@ -123,15 +127,8 @@ class Render:
 
     def get_bounds(self):
 
-        my_max = np.max(self.geojson["coordinates"][0][0], axis=0)
-        max_lon = my_max[0]
-        max_lat = my_max[1]
-
-        my_min = np.min(self.geojson["coordinates"][0][0], axis=0)
-        min_lon = my_min[0]
-        min_lat = my_min[1]
-
-        self.bounds = Bounds(min_lon, max_lon, min_lat, max_lat)
+        coords = np.array(list(geojson.utils.coords(self.geojson)))
+        self.bounds = Bounds(coords[:,0].min(), coords[:,0].max(), coords[:,1].min(), coords[:,1].max())
 
     def get_rendering_bounds(self):
 
@@ -323,19 +320,21 @@ class Render:
         draw.stroke_color = Color("red")
         draw.fill_color = Color("transparent")
 
-        points = []
 
-        # Loop over the coordinates to create a list of tuples
-        for coords in self.geojson["coordinates"][0][0]:
-            pt = Point(coords[0], coords[1])
-            pt.project(self.rendering_zoom)
-            x, y = pt.get_xy()
-            x = round(x - (self.minxtile * 256))
-            y = round(y - (self.minytile * 256))
-            points.append((x, y))
+        for ring in self.geojson["coordinates"][0]:
+            points = []
 
-        # draw the polyline
-        draw.polyline(points)
+            # Loop over the coordinates to create a list of tuples
+            for coords in ring:
+                pt = Point(coords[0], coords[1])
+                pt.project(self.rendering_zoom)
+                x, y = pt.get_xy()
+                x = round(x - (self.minxtile * 256))
+                y = round(y - (self.minytile * 256))
+                points.append((x, y))
+
+            # draw the polyline
+            draw.polyline(points)
 
         # apply to the image
         draw(self.img)
