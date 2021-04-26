@@ -16,7 +16,7 @@ import logging
 log = logging.getLogger(__name__)
 
 class Render:
-    def __init__(self, geojson, width=1024, height=1024):
+    def __init__(self, geojson, width=1024, height=1024, overlay_id = "", overlay_url="", zoom_multiplier = 1):
         self.minxtile = 0
         self.minytile = 0
 
@@ -24,6 +24,7 @@ class Render:
         self.number_of_cols = 0
 
         self.rendering_zoom = 13
+        self.zoom_multiplier = zoom_multiplier
         self.tile_provider = "OSM"
         self.square_rendering = False
         self.center = 0
@@ -39,33 +40,31 @@ class Render:
         self.rendering_bounds = ""
 
         self.tile_cache_path = "./cache"
-        self.cache_path = ""
+        self.cache_path = {}
 
         self.img = ""
 
-        self.debug = False
-
-        self.render_quality = 90
+        self.overlay_id = overlay_id
+        self.overlay_url = overlay_url
 
         self.geojson = json.loads(geojson)
 
-        self.prepare()
+    def init_cache(self, provider):
+        self.cache_path[provider] = self.get_cache_path(provider)
 
-    def init_cache(self):
-        self.cache_path = self.get_cache_path()
+        if not os.path.isdir(self.cache_path[provider]):
+            os.makedirs(self.cache_path[provider])
 
-        if not os.path.isdir(self.cache_path):
-            os.makedirs(self.cache_path)
-
-    def get_cache_path(self):
+    def get_cache_path(self, provider):
         return "%s/%s/%s" % (
             self.tile_cache_path,
-            self.tile_provider,
+            provider,
             self.rendering_zoom,
         )
 
-    def get_tile(self, tile):
-        tile_path = "%s/%s/%s.png" % (self.cache_path, tile[0], tile[1])
+    def get_tile(self, tile, provider):
+        tile_path = "%s/%s/%s.png" % (self.cache_path[provider], tile[0], tile[1])
+        log.debug("Tile path: " + tile_path)
 
         if not os.path.exists(tile_path):
 
@@ -73,8 +72,10 @@ class Render:
 
             if not os.path.isdir(tile_dir):
                 os.makedirs(tile_dir)
-
-            url = self.get_tile_url(tile)
+            if provider == self.tile_provider:
+                url = self.get_tile_url(tile)
+            else:
+                url = self.get_tile_url(tile, self.overlay_url)
             response = requests.get(url)
             f = open(tile_path, "wb+")
             f.write(response.content)
@@ -82,15 +83,20 @@ class Render:
         f = open(tile_path, "rb")
         return f
 
-    def prepare(self):
+    def process(self):
         self.get_bounds()
         self.define_zoom_level()
         self.get_rendering_bounds()
-        self.init_cache()
-
-    def process(self):
+        self.init_cache(self.tile_provider)
         tiles = self.get_tiles_for_bounds()
         self.generate_background(tiles)
+        if self.overlay_id and self.overlay_url:
+            log.debug("Got overlay")
+            self.init_cache(self.overlay_id)
+            self.generate_overlay(tiles)
+        else:
+            log.debug("no overlay")
+        self.generate_attribution()
         return self.generate_track()
 
     def define_zoom_level(self):
@@ -104,8 +110,8 @@ class Render:
         self.get_size_from_bounds_and_zoom_level()
 
         while (
-            self.width_in_pixel > self.render_width
-            or self.height_in_pixel > self.render_height
+            self.width_in_pixel * self.zoom_multiplier > self.render_width  
+            or self.height_in_pixel * self.zoom_multiplier > self.render_height
         ) and self.rendering_zoom > 1:
             self.rendering_zoom = self.rendering_zoom - 1
             self.get_size_from_bounds_and_zoom_level()
@@ -117,11 +123,11 @@ class Render:
 
     def get_bounds(self):
 
-        my_max = np.max(self.geojson["coordinates"], axis=0)
+        my_max = np.max(self.geojson["coordinates"][0][0], axis=0)
         max_lon = my_max[0]
         max_lat = my_max[1]
 
-        my_min = np.min(self.geojson["coordinates"], axis=0)
+        my_min = np.min(self.geojson["coordinates"][0][0], axis=0)
         min_lon = my_min[0]
         min_lat = my_min[1]
 
@@ -232,7 +238,7 @@ class Render:
         for row in tiles:
             current_col = 0
             for tile in row:
-                response = self.get_tile(tile)
+                response = self.get_tile(tile, self.tile_provider)
                 try:
                     with Image(file=response) as tile_img:
                         draw = Drawing()
@@ -251,16 +257,64 @@ class Render:
                 current_col += 1
 
             current_row += 1
+    
+    def generate_overlay(self, tiles):
+        """
+        Displays the tiles on the overlay
+        """
 
-    def get_tile_url(self, tile):
+        current_row = 0
+
+        for row in tiles:
+            current_col = 0
+            for tile in row:
+                response = self.get_tile(tile, self.overlay_id)
+                try:
+                    with Image(file=response) as tile_img:
+                        draw = Drawing()
+                        draw.composite(
+                            operator="dissolve",
+                            # operator="overlay",
+                            left=current_col * 256,
+                            top=current_row * 256,
+                            width=tile_img.width,
+                            height=tile_img.height,
+                            image=tile_img,
+                        )
+                        draw(self.img)
+                finally:
+                    response.close()
+
+                current_col += 1
+
+            current_row += 1
+
+    def get_tile_url(self, tile, query_url = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"):
         """
         Returns the url for a specified tile
         """
-        return "https://tile.openstreetmap.org/%s/%s/%s.png" % (
-            self.rendering_zoom,
-            tile[0],
-            tile[1],
-        )
+        log.debug(query_url)
+        parameters = {}
+        parameters["x"] = tile[0]
+        parameters["y"] = tile[1]
+        parameters["z"] = self.rendering_zoom
+        log.debug(parameters)
+        return query_url.format(**parameters)
+
+    def generate_attribution(self):
+        draw = Drawing()
+        draw.font = '~/NotoSans-Regular.ttf'
+        draw.font_size = 11
+        draw.text_alignment = 'right'
+        draw.text_under_color = Color("#f6f5f5")
+        x = self.rendering_bounds.se.x - (self.minxtile * 256)
+        y = self.rendering_bounds.se.y - (self.minytile * 256) - 5
+        # for i in range(0, self.render_height, 40):
+        #     log.debug(i)
+        #     draw.text(i, i, str(i))
+        # # draw.circle((int(self.render_width), int(self.render_height), 10))
+        draw.text(int(x), int(y), 'Fond © OpenStreetMap' + ' ')
+        draw(self.img)
 
     def generate_track(self):
 
@@ -272,7 +326,7 @@ class Render:
         points = []
 
         # Loop over the coordinates to create a list of tuples
-        for coords in self.geojson["coordinates"]:
+        for coords in self.geojson["coordinates"][0][0]:
             pt = Point(coords[0], coords[1])
             pt.project(self.rendering_zoom)
             x, y = pt.get_xy()
@@ -291,9 +345,9 @@ class Render:
         y = int(self.rendering_bounds.nw.tile_y - self.minytile)
 
         self.crop(x, y)
-        self.img.format = "jpeg"
+        self.img.format = "png"
         # self.img.save(filename='image.jpg')
-        return self.img.make_blob("jpeg")
+        return self.img.make_blob("png")
 
     def crop(self, x, y):
         x = self.rendering_bounds.nw.x - (self.minxtile * 256)
