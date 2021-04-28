@@ -217,7 +217,8 @@ class Render:
         i = 0
 
         # Create a Matrix of tiles
-        matrix = [[0] * self.number_of_cols] * self.number_of_rows
+        matrix = [ [ 0 for x in range(self.number_of_cols) ] for y in range(self.number_of_rows) ]
+
 
         # Loop over the rows (y tiles)
         for y_tile in tile_y_range:
